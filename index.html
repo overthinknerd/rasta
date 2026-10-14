@@ -1,0 +1,835 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="referrer" content="no-referrer">
+<title>Rasta</title>
+<style>
+/* Layout: one phone-width column of steps; on wide screens the form and the live card preview sit side by side.
+   No web fonts on purpose: loading them would tell a font server who opened this page. */
+:root {
+  --bg: #f3f5f4; --surface: #ffffff; --fg: #14201d; --muted: #586662; --line: #d6ddda;
+  --accent: #0f766e; --accent-fg: #ffffff; --note-bg: #fff4dd; --note-fg: #6b4300;
+  --font-body: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", "Noto Sans Devanagari", sans-serif;
+  --font-display: ui-rounded, "SF Pro Rounded", system-ui, -apple-system, "Noto Sans", "Noto Sans Devanagari", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --radius: 10px;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0d1412; --surface: #15201d; --fg: #e4ece9; --muted: #95a49f; --line: #283632;
+  --accent: #2dd4bf; --accent-fg: #062320; --note-bg: #352710; --note-fg: #f3cd85; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0d1412; --surface: #15201d; --fg: #e4ece9; --muted: #95a49f; --line: #283632;
+  --accent: #2dd4bf; --accent-fg: #062320; --note-bg: #352710; --note-fg: #f3cd85; color-scheme: dark }
+
+* { box-sizing: border-box }
+html { -webkit-text-size-adjust: 100% }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.5 var(--font-body);
+  padding: env(safe-area-inset-top, 0px) 16px calc(env(safe-area-inset-bottom, 0px) + 32px) }
+.wrap { max-width: 980px; margin: 0 auto }
+header { padding-block: 20px 8px; display: grid; gap: 4px }
+h1 { font: 700 28px/1.1 var(--font-display); margin: 0; letter-spacing: -0.01em }
+header p { margin: 0; color: var(--muted); max-width: 60ch }
+h2 { font: 700 20px/1.25 var(--font-display); margin: 0; text-wrap: balance }
+h3 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 0 }
+p { margin: 0 }
+a { color: var(--accent) }
+
+nav { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg);
+  display: grid; grid-template-columns: repeat(4, auto); justify-content: start; gap: 4px; padding-block: 10px; overflow-x: auto; scrollbar-width: none }
+nav button { white-space: nowrap; border: 1px solid var(--line); background: var(--surface); color: var(--fg);
+  font: 600 14px var(--font-body); padding: 8px 8px; border-radius: 999px; cursor: pointer }
+nav button[aria-selected="true"] { background: var(--accent); color: var(--accent-fg); border-color: var(--accent) }
+
+section.tab { display: grid; gap: 16px; padding-block: 8px }
+.cols { display: grid; gap: 20px }
+@media (min-width: 820px) { .cols { grid-template-columns: minmax(0, 1fr) 300px; align-items: start }
+  .preview { position: sticky; top: 70px } }
+
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; display: grid; gap: 14px; min-width: 0 }
+.field { display: grid; gap: 4px; align-content: start }
+.field label, .field .label { font-weight: 600; font-size: 15px }
+.field small { color: var(--muted); font-size: 13px }
+input[type=text], input[type=url], select, textarea {
+  width: 100%; font: 16px var(--font-body); color: var(--fg); background: var(--bg);
+  border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px }
+textarea { min-height: 150px; resize: vertical; font-size: 15px }
+input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visible {
+  outline: 3px solid var(--accent); outline-offset: 2px }
+.row2 { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)) }
+.swatches { display: flex; flex-wrap: wrap; gap: 8px }
+.swatches label { display: flex; align-items: center; gap: 8px; border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; cursor: pointer; font-size: 14px }
+.swatches label:has(input:checked) { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) }
+.swatches i { width: 18px; height: 18px; border-radius: 4px; display: inline-block }
+.check { display: flex; gap: 10px; align-items: flex-start }
+.check input { width: 20px; height: 20px; margin-top: 2px; accent-color: var(--accent); flex: 0 0 auto }
+
+.btns { display: flex; flex-wrap: wrap; gap: 10px }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; text-decoration: none;
+  font: 600 16px var(--font-body); padding: 12px 18px; border-radius: 8px; cursor: pointer;
+  border: 1px solid var(--accent); background: var(--accent); color: var(--accent-fg) }
+.btn.secondary { background: transparent; color: var(--accent) }
+.btn.quiet { border-color: var(--line); background: transparent; color: var(--fg) }
+.btn[disabled] { opacity: 0.5; cursor: not-allowed }
+
+.note { background: var(--note-bg); color: var(--note-fg); border-radius: 8px; padding: 10px 12px; font-size: 14px }
+.muted { color: var(--muted); font-size: 14px }
+.preview { display: grid; gap: 8px; justify-items: center }
+.preview canvas, .result canvas { width: 100%; max-width: 280px; height: auto; border-radius: 8px; border: 1px solid var(--line); background: #000 }
+.result video { width: 100%; max-width: 320px; border-radius: 8px; background: #000 }
+.result { display: grid; gap: 12px; justify-items: start }
+progress { width: 100%; height: 10px; accent-color: var(--accent) }
+.copybox { display: grid; gap: 8px }
+.checklist { list-style: none; padding: 0; margin: 0; display: grid; gap: 12px }
+.checklist .why { display: block; color: var(--muted); font-size: 14px }
+.privacy { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Rasta</h1>
+    <p>Keep your followers if your account gets blocked. Add a "follow our backup" card to every reel, and get ready-made posts that send people to your backups. Everything stays on this phone.</p>
+  </header>
+
+  <nav role="tablist" aria-label="Steps">
+    <button role="tab" id="tab-setup" aria-controls="setup" aria-selected="true">1 Backups</button>
+    <button role="tab" id="tab-reel" aria-controls="reel" aria-selected="false">2 Reel</button>
+    <button role="tab" id="tab-kit" aria-controls="kit" aria-selected="false">3 Posts</button>
+    <button role="tab" id="tab-check" aria-controls="check" aria-selected="false">4 Checklist</button>
+  </nav>
+
+  <!-- 1. Setup -->
+  <section class="tab" id="setup" role="tabpanel" aria-labelledby="tab-setup">
+    <p class="note" id="exampleNote">These are example details. Replace them with your own. They are saved only on this phone.</p>
+    <div class="cols">
+      <form class="panel" id="cfgForm" autocomplete="off">
+        <div class="field">
+          <label for="f-name">Your name or page name</label>
+          <input type="text" id="f-name" name="name">
+        </div>
+        <div class="row2">
+          <div class="field">
+            <label for="f-ig">Backup Instagram</label>
+            <input type="text" id="f-ig" name="ig" placeholder="@yourname.backup">
+          </div>
+          <div class="field">
+            <label for="f-yt">YouTube channel</label>
+            <input type="text" id="f-yt" name="yt" placeholder="@yourchannel">
+          </div>
+        </div>
+        <div class="field">
+          <label for="f-wa">WhatsApp Channel link</label>
+          <input type="url" id="f-wa" name="wa" placeholder="https://whatsapp.com/channel/...">
+        </div>
+        <div class="field">
+          <label for="f-web">Website or link page</label>
+          <input type="text" id="f-web" name="web" placeholder="yourname.in">
+        </div>
+        <div class="row2">
+          <div class="field">
+            <label for="f-qr">QR code opens</label>
+            <select id="f-qr" name="qr"></select>
+            <small>Pick the link least likely to be blocked.</small>
+          </div>
+          <div class="field">
+            <label for="f-lang">Card language</label>
+            <select id="f-lang" name="lang">
+              <option value="both">हिन्दी + English</option>
+              <option value="hi">हिन्दी</option>
+              <option value="en">English</option>
+            </select>
+          </div>
+        </div>
+        <div class="field">
+          <span class="label">End card design</span>
+          <div class="swatches">
+            <label for="cm-rasta"><input type="radio" id="cm-rasta" name="cardMode" value="rasta">Made by Rasta</label>
+            <label for="cm-own"><input type="radio" id="cm-own" name="cardMode" value="own">My own image</label>
+          </div>
+          <div class="field" id="ownBox" hidden>
+            <label for="f-own">Choose your end card image</label>
+            <input type="file" id="f-own" accept="image/*">
+            <small id="ownMsg">Make it portrait, 1080 × 1920, for example in Canva. Put your backup handles and a QR code on it yourself.</small>
+          </div>
+        </div>
+        <div class="field" id="colourBox">
+          <span class="label">Card colours</span>
+          <div class="swatches" id="swatches"></div>
+          <small>None of these are party colours.</small>
+        </div>
+        <div class="row2">
+          <div class="field">
+            <label for="f-secs">End card length</label>
+            <select id="f-secs" name="secs">
+              <option value="3">3 seconds</option>
+              <option value="4">4 seconds</option>
+              <option value="5">5 seconds</option>
+            </select>
+          </div>
+          <label class="check" for="f-wm">
+            <input type="checkbox" id="f-wm" name="wm">
+            <span>Show the backup handle in a corner of the whole reel<span class="muted" style="display:block">It stays visible when people screen-record or forward the reel.</span></span>
+          </label>
+        </div>
+      </form>
+      <div class="preview">
+        <h3>End card preview</h3>
+        <canvas id="previewCard" width="540" height="960" aria-label="Preview of the end card"></canvas>
+        <p class="muted" id="qrStatus"></p>
+      </div>
+    </div>
+    <div class="panel privacy">
+      <p class="muted">Your details never leave this phone. Nothing is uploaded and there is no account.</p>
+      <div class="btns">
+        <button class="btn quiet" type="button" id="wipe">Delete my details from this phone</button>
+      </div>
+    </div>
+    <p class="muted" id="wipeMsg" hidden>Deleted. The example details are showing again.</p>
+  </section>
+
+  <!-- 2. Reel -->
+  <section class="tab" id="reel" role="tabpanel" aria-labelledby="tab-reel" hidden>
+    <div class="panel">
+      <h2>Add the end card to a reel</h2>
+      <p class="muted">Do this before you post. A reel that is already on Instagram can't be changed.</p>
+      <div class="field">
+        <label for="f-video">Choose a video</label>
+        <input type="file" id="f-video" accept="video/*">
+      </div>
+      <div class="btns">
+        <button class="btn" type="button" id="process" disabled>Add end card</button>
+      </div>
+      <div id="progressBox" hidden>
+        <progress id="progress" max="1" value="0"></progress>
+        <p class="muted" id="progressText"></p>
+      </div>
+      <p class="note" id="reelError" hidden></p>
+    </div>
+    <div class="panel result" id="result" hidden>
+      <h2>Ready to post</h2>
+      <video id="resultVideo" controls playsinline></video>
+      <p class="note" id="formatNote" hidden></p>
+      <div class="btns">
+        <button class="btn" type="button" id="shareVideo" hidden>Share to Instagram, YouTube or WhatsApp</button>
+        <a class="btn secondary" id="saveVideo" download>Save video</a>
+      </div>
+      <p class="muted">Posting on Instagram? Tap <b>Tag people → Invite collaborator</b> and pick your backup account, then accept the invite from the backup. The reel then shows on both profiles. Add the backup handle to the caption too.</p>
+    </div>
+  </section>
+
+  <!-- 3. Follow kit -->
+  <section class="tab" id="kit" role="tabpanel" aria-labelledby="tab-kit" hidden>
+    <div class="cols">
+      <div class="panel">
+        <h2>Ask followers to follow your backups now</h2>
+        <div class="copybox">
+          <label class="label" for="t-caption"><b>Caption for a pinned post</b></label>
+          <textarea id="t-caption" readonly></textarea>
+          <div class="btns"><button class="btn secondary" type="button" data-copy="t-caption">Copy caption</button></div>
+        </div>
+        <div class="copybox">
+          <label class="label" for="t-wa"><b>WhatsApp message to forward</b></label>
+          <textarea id="t-wa" readonly></textarea>
+          <div class="btns">
+            <a class="btn" id="waLink" target="_blank" rel="noopener noreferrer">Open in WhatsApp</a>
+            <button class="btn secondary" type="button" data-copy="t-wa">Copy message</button>
+          </div>
+        </div>
+        <div class="copybox">
+          <label class="label" for="t-bio"><b>Line for your bio</b></label>
+          <textarea id="t-bio" readonly style="min-height:60px"></textarea>
+          <div class="btns"><button class="btn secondary" type="button" data-copy="t-bio">Copy bio line</button></div>
+        </div>
+        <p class="muted" id="copyMsg" role="status"></p>
+      </div>
+      <div class="preview">
+        <h3>Story image</h3>
+        <canvas id="storyCard" width="540" height="960" aria-label="Story image asking followers to follow the backup"></canvas>
+        <div class="btns">
+          <button class="btn" type="button" id="shareStory" hidden>Share story image</button>
+          <a class="btn secondary" id="saveStory" download="follow-our-backup.png">Save image</a>
+        </div>
+        <p class="muted">Post it as a story once a week, and as a post you pin to the top of your profile.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. Checklist -->
+  <section class="tab" id="check" role="tabpanel" aria-labelledby="tab-check" hidden>
+    <div class="panel">
+      <h2>Do these before anything happens</h2>
+      <ul class="checklist" id="checklist"></ul>
+    </div>
+  </section>
+</div>
+
+<script>
+"use strict";
+/* ---------------- QR code (byte mode, error correction M, versions 1-10) ---------------- */
+const QR = (() => {
+  // [ec codewords per block, blocks in group 1, data codewords each, blocks in group 2, data codewords each]
+  const EC = [[10,1,16,0,0],[16,1,28,0,0],[26,1,44,0,0],[18,2,32,0,0],[24,2,43,0,0],
+              [16,4,27,0,0],[18,4,31,0,0],[22,2,38,2,39],[22,3,36,2,37],[26,4,43,1,44]];
+  const ALIGN = [[],[6,18],[6,22],[6,26],[6,30],[6,34],[6,22,38],[6,24,42],[6,26,46],[6,28,50]];
+  const EXP = new Array(512), LOG = new Array(256);
+  for (let i = 0, x = 1; i < 255; i++) { EXP[i] = x; LOG[x] = i; x <<= 1; if (x & 256) x ^= 0x11d; }
+  for (let i = 255; i < 512; i++) EXP[i] = EXP[i - 255];
+  const mul = (a, b) => (a && b ? EXP[LOG[a] + LOG[b]] : 0);
+  function rsRemainder(data, n) {
+    let g = [1];
+    for (let i = 0; i < n; i++) {
+      const ng = new Array(g.length + 1).fill(0);
+      for (let j = 0; j < g.length; j++) { ng[j] ^= g[j]; ng[j + 1] ^= mul(g[j], EXP[i]); }
+      g = ng;
+    }
+    const r = new Array(n).fill(0);
+    for (const d of data) {
+      const f = d ^ r.shift(); r.push(0);
+      for (let j = 0; j < n; j++) r[j] ^= mul(g[j + 1], f);
+    }
+    return r;
+  }
+  const MASKS = [(x,y)=>(x+y)%2===0, (x,y)=>y%2===0, (x,y)=>x%3===0, (x,y)=>(x+y)%3===0,
+    (x,y)=>(Math.floor(x/3)+Math.floor(y/2))%2===0, (x,y)=>x*y%2+x*y%3===0,
+    (x,y)=>(x*y%2+x*y%3)%2===0, (x,y)=>((x+y)%2+x*y%3)%2===0];
+
+  function build(v, codewords) {
+    const size = 17 + 4 * v;
+    const m = [], fn = [];
+    for (let i = 0; i < size; i++) { m.push(new Array(size).fill(false)); fn.push(new Array(size).fill(false)); }
+    const set = (x, y, d) => { m[y][x] = d; fn[y][x] = true; };
+    for (let i = 0; i < size; i++) { set(6, i, i % 2 === 0); set(i, 6, i % 2 === 0); }
+    const finder = (cx, cy) => {
+      for (let dy = -4; dy <= 4; dy++) for (let dx = -4; dx <= 4; dx++) {
+        const d = Math.max(Math.abs(dx), Math.abs(dy)), x = cx + dx, y = cy + dy;
+        if (x >= 0 && x < size && y >= 0 && y < size) set(x, y, d !== 2 && d !== 4);
+      }
+    };
+    finder(3, 3); finder(size - 4, 3); finder(3, size - 4);
+    const al = ALIGN[v - 1], n = al.length;
+    for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
+      if ((i === 0 && j === 0) || (i === 0 && j === n - 1) || (i === n - 1 && j === 0)) continue;
+      for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++)
+        set(al[i] + dx, al[j] + dy, Math.max(Math.abs(dx), Math.abs(dy)) !== 1);
+    }
+    const drawFormat = (mask) => {
+      const data = (0 << 3) | mask; // level M = 0
+      let rem = data;
+      for (let i = 0; i < 10; i++) rem = (rem << 1) ^ ((rem >>> 9) * 0x537);
+      const bits = ((data << 10) | rem) ^ 0x5412;
+      const b = (i) => ((bits >>> i) & 1) === 1;
+      for (let i = 0; i <= 5; i++) set(8, i, b(i));
+      set(8, 7, b(6)); set(8, 8, b(7)); set(7, 8, b(8));
+      for (let i = 9; i < 15; i++) set(14 - i, 8, b(i));
+      for (let i = 0; i < 8; i++) set(size - 1 - i, 8, b(i));
+      for (let i = 8; i < 15; i++) set(8, size - 15 + i, b(i));
+      set(8, size - 8, true);
+    };
+    drawFormat(0);
+    if (v >= 7) {
+      let r = v;
+      for (let i = 0; i < 12; i++) r = (r << 1) ^ ((r >>> 11) * 0x1f25);
+      const bits = (v << 12) | r;
+      for (let i = 0; i < 18; i++) {
+        const bit = ((bits >>> i) & 1) === 1, a = size - 11 + (i % 3), c = Math.floor(i / 3);
+        set(a, c, bit); set(c, a, bit);
+      }
+    }
+    let i = 0;
+    for (let right = size - 1; right >= 1; right -= 2) {
+      if (right === 6) right = 5;
+      for (let vert = 0; vert < size; vert++) for (let j = 0; j < 2; j++) {
+        const x = right - j, upward = ((right + 1) & 2) === 0, y = upward ? size - 1 - vert : vert;
+        if (!fn[y][x] && i < codewords.length * 8) { m[y][x] = ((codewords[i >>> 3] >>> (7 - (i & 7))) & 1) === 1; i++; }
+      }
+    }
+    const applyMask = (k) => { for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) if (!fn[y][x] && MASKS[k](x, y)) m[y][x] = !m[y][x]; };
+    let best = 0, bestScore = Infinity;
+    for (let k = 0; k < 8; k++) {
+      applyMask(k); drawFormat(k);
+      const s = penalty(m, size);
+      if (s < bestScore) { bestScore = s; best = k; }
+      applyMask(k);
+    }
+    applyMask(best); drawFormat(best);
+    return m;
+  }
+
+  function penalty(m, size) {
+    let p = 0, dark = 0;
+    const line = (get) => {
+      let run = 1;
+      for (let i = 1; i <= size; i++) {
+        if (i < size && get(i) === get(i - 1)) run++;
+        else { if (run >= 5) p += run - 2; run = 1; }
+      }
+      const pat = [1,0,1,1,1,0,1,0,0,0,0];
+      for (let i = 0; i + 11 <= size; i++) {
+        let f = true, r = true;
+        for (let k = 0; k < 11; k++) { const c = get(i + k) ? 1 : 0; if (c !== pat[k]) f = false; if (c !== pat[10 - k]) r = false; }
+        if (f) p += 40; if (r) p += 40;
+      }
+    };
+    for (let y = 0; y < size; y++) line((x) => m[y][x]);
+    for (let x = 0; x < size; x++) line((y) => m[y][x]);
+    for (let y = 0; y < size - 1; y++) for (let x = 0; x < size - 1; x++) {
+      const c = m[y][x];
+      if (c === m[y][x + 1] && c === m[y + 1][x] && c === m[y + 1][x + 1]) p += 3;
+    }
+    for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) if (m[y][x]) dark++;
+    p += Math.floor(Math.abs(dark * 20 - size * size * 10) / (size * size)) * 10;
+    return p;
+  }
+
+  function encode(text) {
+    const bytes = Array.from(new TextEncoder().encode(text));
+    for (let v = 1; v <= 10; v++) {
+      const [ecn, b1, d1, b2, d2] = EC[v - 1];
+      const cap = b1 * d1 + b2 * d2, ccBits = v < 10 ? 8 : 16;
+      if (4 + ccBits + 8 * bytes.length > cap * 8) continue;
+      const bits = [];
+      const put = (val, n) => { for (let i = n - 1; i >= 0; i--) bits.push((val >>> i) & 1); };
+      put(4, 4); put(bytes.length, ccBits); bytes.forEach((b) => put(b, 8));
+      put(0, Math.min(4, cap * 8 - bits.length));
+      while (bits.length % 8) bits.push(0);
+      const data = [];
+      for (let i = 0; i < bits.length; i += 8) { let x = 0; for (let j = 0; j < 8; j++) x = (x << 1) | bits[i + j]; data.push(x); }
+      for (let pad = 0xec; data.length < cap; pad ^= 0xec ^ 0x11) data.push(pad);
+      const blocks = [], ecs = [];
+      let k = 0;
+      for (let i = 0; i < b1 + b2; i++) {
+        const blk = data.slice(k, k + (i < b1 ? d1 : d2)); k += blk.length;
+        blocks.push(blk); ecs.push(rsRemainder(blk, ecn));
+      }
+      const out = [];
+      for (let i = 0; i < Math.max(d1, d2); i++) for (const b of blocks) if (i < b.length) out.push(b[i]);
+      for (let i = 0; i < ecn; i++) for (const e of ecs) out.push(e[i]);
+      return build(v, out);
+    }
+    return null; // too long
+  }
+  return { encode };
+})();
+
+/* ---------------- settings, kept only in this browser ---------------- */
+const STORE_KEY = "rasta.v1";
+const OWN_KEY = "rasta.ownCard"; // the uploaded end card, as a downscaled JPEG data URL
+let ownCard = null; // loaded <img> of the uploaded end card
+const EXAMPLE = {
+  name: "Asha Reports", ig: "@asha.reports.backup", yt: "@AshaReports",
+  wa: "https://whatsapp.com/channel/EXAMPLE", web: "ashareports.example",
+  qr: "web", lang: "both", palette: "ink", secs: "3", wm: true, cardMode: "rasta",
+};
+const PALETTES = {
+  ink:   { label: "Ink",   bg: "#0b1f33", fg: "#ffffff", muted: "#a3b8cc", accent: "#5eead4" },
+  night: { label: "Night", bg: "#111111", fg: "#ffffff", muted: "#b0b0b0", accent: "#facc15" },
+  plum:  { label: "Plum",  bg: "#3a0b45", fg: "#ffffff", muted: "#dcbde6", accent: "#f9a8d4" },
+  paper: { label: "Paper", bg: "#f2f2ee", fg: "#111111", muted: "#555555", accent: "#c8102e" },
+};
+const TARGETS = { web: "Website", wa: "WhatsApp Channel", yt: "YouTube", ig: "Backup Instagram" };
+
+function loadCfg() {
+  try { const s = JSON.parse(localStorage.getItem(STORE_KEY)); if (s && typeof s === "object") return { cfg: { ...EXAMPLE, ...s }, saved: true }; } catch (e) {}
+  return { cfg: { ...EXAMPLE }, saved: false };
+}
+function saveCfg(cfg) { try { localStorage.setItem(STORE_KEY, JSON.stringify(cfg)); } catch (e) {} }
+
+const handle = (s) => { s = (s || "").trim(); if (!s) return ""; if (/^https?:/i.test(s)) return s; return s.startsWith("@") ? s : "@" + s; };
+const bareUrl = (s) => (s || "").trim().replace(/^https?:\/\//i, "").replace(/^www\./i, "").replace(/\/$/, "");
+function fullUrl(kind, cfg) {
+  const v = (cfg[kind] || "").trim();
+  if (!v) return "";
+  if (/^https?:\/\//i.test(v)) return v;
+  if (kind === "ig") return "https://instagram.com/" + v.replace(/^@/, "");
+  if (kind === "yt") return "https://youtube.com/" + (v.startsWith("@") ? v : "@" + v);
+  return "https://" + v;
+}
+
+/* ---------------- words, in Hindi and English ---------------- */
+const T = {
+  end:   { en: ["If this account disappears,", "follow us here"], hi: ["अगर यह अकाउंट बंद हो जाए,", "तो हमें यहाँ फ़ॉलो करें"] },
+  story: { en: ["Follow our backup now,", "before this account gets blocked"], hi: ["हमारा बैकअप अभी फ़ॉलो करें,", "इससे पहले कि यह अकाउंट ब्लॉक हो"] },
+  scan:  { en: "Scan to follow", hi: "फ़ॉलो करने के लिए स्कैन करें" },
+  backup: { en: "Backup", hi: "बैकअप" },
+  labels: {
+    en: { ig: "Instagram backup", yt: "YouTube", wa: "WhatsApp Channel", web: "Website" },
+    hi: { ig: "इंस्टाग्राम बैकअप", yt: "यूट्यूब", wa: "व्हाट्सऐप चैनल", web: "वेबसाइट" },
+  },
+};
+function rows(cfg, lang) {
+  const L = T.labels[lang === "hi" ? "hi" : "en"], out = [];
+  if (cfg.ig) out.push([L.ig, handle(cfg.ig)]);
+  if (cfg.yt) out.push([L.yt, /^https?:/i.test(cfg.yt) ? bareUrl(cfg.yt) : handle(cfg.yt)]);
+  if (cfg.wa) out.push([L.wa, cfg.name || bareUrl(cfg.wa)]);
+  if (cfg.web) out.push([L.web, bareUrl(cfg.web)]);
+  return out;
+}
+function listText(cfg, lang) {
+  const L = T.labels[lang], out = [];
+  if (cfg.ig) out.push(`${L.ig}: ${handle(cfg.ig)}`);
+  if (cfg.yt) out.push(`${L.yt}: ${fullUrl("yt", cfg)}`);
+  if (cfg.wa) out.push(`${L.wa}: ${fullUrl("wa", cfg)}`);
+  if (cfg.web) out.push(`${L.web}: ${fullUrl("web", cfg)}`);
+  return out.join("\n");
+}
+function texts(cfg) {
+  const name = cfg.name || "us";
+  const en = {
+    caption: `This account could be blocked at any time. To keep getting our reports, follow our backups now:\n\n${listText(cfg, "en")}\n\nPlease share this with people who follow us.`,
+    wa: `In case ${name}'s Instagram gets blocked, you can keep following them here:\n\n${listText(cfg, "en")}`,
+    bio: `Backup: ${[handle(cfg.ig), bareUrl(cfg.web)].filter(Boolean).join(" · ")}`,
+  };
+  const hi = {
+    caption: `यह अकाउंट कभी भी ब्लॉक हो सकता है। हमारी रिपोर्ट मिलती रहें, इसके लिए अभी हमारे बैकअप फ़ॉलो करें:\n\n${listText(cfg, "hi")}\n\nजो लोग हमें फ़ॉलो करते हैं, उनके साथ ज़रूर शेयर करें।`,
+    wa: `अगर ${name} का इंस्टाग्राम ब्लॉक हो जाए, तो उनकी ख़बरें यहाँ मिलती रहेंगी:\n\n${listText(cfg, "hi")}`,
+    bio: `बैकअप: ${[handle(cfg.ig), bareUrl(cfg.web)].filter(Boolean).join(" · ")}`,
+  };
+  if (cfg.lang === "en") return en;
+  if (cfg.lang === "hi") return hi;
+  return { caption: hi.caption + "\n\n—\n\n" + en.caption, wa: hi.wa + "\n\n—\n\n" + en.wa, bio: hi.bio + " | " + en.bio.replace(/^Backup: /, "") };
+}
+
+/* ---------------- drawing the card ---------------- */
+const CARD_FONT = 'system-ui, -apple-system, "Noto Sans", "Noto Sans Devanagari", "Kohinoor Devanagari", sans-serif';
+function fit(ctx, text, weight, size, maxW) {
+  let s = size;
+  do { ctx.font = `${weight} ${s}px ${CARD_FONT}`; if (ctx.measureText(text).width <= maxW) break; s -= 2; } while (s > 12);
+  return s;
+}
+function qrMatrix(cfg) { const url = fullUrl(cfg.qr, cfg); return url ? QR.encode(url) : null; }
+
+// Draws the end card (kind "end") or story image (kind "story") into a w x h canvas.
+// t is 0..1 fade-in progress. Layout is designed on a 1080 x 1920 portrait grid and scaled into whatever fits.
+function drawCard(ctx, w, h, cfg, kind, t, qr) {
+  if (kind === "end" && cfg.cardMode === "own" && ownCard) {
+    ctx.save();
+    ctx.fillStyle = "#000"; ctx.fillRect(0, 0, w, h);
+    const sc = Math.min(w / ownCard.width, h / ownCard.height), iw = ownCard.width * sc, ih = ownCard.height * sc;
+    ctx.globalAlpha = Math.max(0, Math.min(1, t));
+    ctx.drawImage(ownCard, (w - iw) / 2, (h - ih) / 2, iw, ih);
+    ctx.restore();
+    return;
+  }
+  const P = PALETTES[cfg.palette] || PALETTES.ink;
+  ctx.save();
+  ctx.fillStyle = P.bg; ctx.fillRect(0, 0, w, h);
+  const bw = Math.min(w, h * 9 / 16), bh = bw * 16 / 9, s = bw / 1080;
+  ctx.translate((w - bw) / 2, (h - bh) / 2); ctx.scale(s, s);
+  ctx.globalAlpha = Math.max(0, Math.min(1, t));
+  const lift = (1 - Math.min(1, t)) * 30;
+  ctx.translate(0, lift);
+  ctx.textAlign = "center"; ctx.textBaseline = "alphabetic";
+  const words = T[kind], maxW = 940;
+  let y = 250;
+  const head = (lines, size, color) => {
+    for (const ln of lines) { const fs = fit(ctx, ln, 800, size, maxW); ctx.fillStyle = color; ctx.fillText(ln, 540, y); y += fs * 1.28; }
+  };
+  if (cfg.lang === "both") { head(words.hi, 70, P.fg); y += 10; head(words.en, 46, P.muted); }
+  else head(words[cfg.lang] || words.en, 76, P.fg);
+
+  y += 40;
+  ctx.fillStyle = P.accent; ctx.fillRect(470, y, 140, 8); y += 90;
+
+  for (const [label, value] of rows(cfg, cfg.lang)) {
+    fit(ctx, label.toUpperCase(), 600, 32, maxW); ctx.fillStyle = P.muted; ctx.fillText(label.toUpperCase(), 540, y); y += 66;
+    fit(ctx, value, 800, 58, maxW); ctx.fillStyle = P.fg; ctx.fillText(value, 540, y); y += 92;
+  }
+
+  if (qr) {
+    const n = qr.length, quiet = 4, box = Math.min(400, 1820 - y - 120), mod = box / (n + quiet * 2);
+    const x0 = 540 - box / 2, y0 = y + 10;
+    ctx.fillStyle = "#ffffff"; ctx.fillRect(x0, y0, box, box);
+    ctx.fillStyle = "#000000";
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++)
+      if (qr[r][c]) ctx.fillRect(Math.floor(x0 + (c + quiet) * mod), Math.floor(y0 + (r + quiet) * mod), Math.ceil(mod), Math.ceil(mod));
+    y = y0 + box + 60;
+    const scan = cfg.lang === "hi" ? T.scan.hi : cfg.lang === "both" ? `${T.scan.hi} · ${T.scan.en}` : T.scan.en;
+    fit(ctx, scan, 600, 34, maxW); ctx.fillStyle = P.muted; ctx.fillText(scan, 540, y);
+  }
+  if (cfg.name) { fit(ctx, cfg.name, 700, 40, maxW); ctx.fillStyle = P.fg; ctx.fillText(cfg.name, 540, 1840); }
+  ctx.restore();
+}
+
+function drawWatermark(ctx, w, h, cfg) {
+  const tag = handle(cfg.ig) || bareUrl(cfg.web);
+  if (!tag) return;
+  const word = cfg.lang === "en" ? T.backup.en : T.backup.hi;
+  const text = `${word}: ${tag}`, fs = Math.round(Math.min(w, h * 9 / 16) * 0.036);
+  ctx.save();
+  ctx.font = `700 ${fs}px ${CARD_FONT}`;
+  const tw = ctx.measureText(text).width, padX = fs * 0.6, padY = fs * 0.4;
+  const x = w * 0.04, y = h * 0.12; // top-left, clear of the reel's own buttons and caption
+  ctx.fillStyle = "rgba(0,0,0,0.5)";
+  const bw = tw + padX * 2, bh = fs + padY * 2, r = bh / 2;
+  ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + bw, y, x + bw, y + bh, r); ctx.arcTo(x + bw, y + bh, x, y + bh, r);
+  ctx.arcTo(x, y + bh, x, y, r); ctx.arcTo(x, y, x + bw, y, r); ctx.fill();
+  ctx.fillStyle = "#ffffff"; ctx.textBaseline = "middle"; ctx.fillText(text, x + padX, y + bh / 2 + 1);
+  ctx.restore();
+}
+
+/* ---------------- adding the card to a video, all on this device ---------------- */
+function pickMime() {
+  const c = ["video/mp4;codecs=avc1.640028,mp4a.40.2", "video/mp4;codecs=avc1,mp4a", "video/mp4",
+             "video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm"];
+  return c.find((m) => window.MediaRecorder && MediaRecorder.isTypeSupported(m)) || "";
+}
+
+// Plays the video once in real time, drawing each frame (plus the corner handle) onto a canvas
+// that is being recorded, then draws the end card for cfg.secs seconds and stops.
+async function renderReel(file, cfg, onProgress) {
+  const mime = pickMime();
+  if (!mime) throw new Error("This browser can't record video. Use Chrome on Android or Safari on iPhone.");
+  const url = URL.createObjectURL(file);
+  const video = document.createElement("video");
+  video.src = url; video.playsInline = true; video.preload = "auto";
+  video.style.cssText = "position:fixed;left:0;top:0;width:2px;height:2px;opacity:0.01;pointer-events:none";
+  document.body.append(video);
+  const cleanup = [() => video.remove(), () => URL.revokeObjectURL(url)];
+  try {
+    await new Promise((res, rej) => {
+      video.onloadeddata = res;
+      video.onerror = () => rej(new Error("This video can't be opened here. Try saving it again as an MP4 and choose it again."));
+    });
+    let w = video.videoWidth, h = video.videoHeight;
+    const sc = Math.min(1, 1920 / Math.max(w, h));
+    w = Math.round((w * sc) / 2) * 2; h = Math.round((h * sc) / 2) * 2;
+    const canvas = document.createElement("canvas");
+    canvas.width = w; canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    const qr = qrMatrix(cfg), secs = Number(cfg.secs) || 3;
+    ctx.drawImage(video, 0, 0, w, h);
+    if (cfg.wm) drawWatermark(ctx, w, h, cfg);
+
+    const stream = canvas.captureStream(30);
+    let ac = null;
+    try {
+      ac = new AudioContext();
+      const src = ac.createMediaElementSource(video), dest = ac.createMediaStreamDestination();
+      src.connect(dest); // routed only into the recording, so nothing plays out loud
+      dest.stream.getAudioTracks().forEach((tr) => stream.addTrack(tr));
+      cleanup.push(() => ac.close());
+    } catch (e) { ac = null; }
+
+    const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 8_000_000, audioBitsPerSecond: 128_000 });
+    const chunks = [];
+    rec.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
+    const stopped = new Promise((r) => (rec.onstop = r));
+    const total = video.duration + secs;
+    let phase = "video", cardStart = 0, failed = null;
+    const onHide = () => { if (document.hidden && phase !== "done") { failed = new Error("Processing stopped because the screen was switched off or you left the page. Keep this screen open and try again."); } };
+    document.addEventListener("visibilitychange", onHide);
+    cleanup.push(() => document.removeEventListener("visibilitychange", onHide));
+    video.onended = () => { phase = "card"; cardStart = performance.now(); };
+
+    const frame = () => {
+      if (failed) { phase = "done"; if (rec.state !== "inactive") rec.stop(); video.pause(); return; }
+      if (phase === "video") {
+        ctx.drawImage(video, 0, 0, w, h);
+        if (cfg.wm) drawWatermark(ctx, w, h, cfg);
+        onProgress(video.currentTime / total, video.currentTime, total);
+      } else {
+        const el = (performance.now() - cardStart) / 1000;
+        drawCard(ctx, w, h, cfg, "end", el / 0.5, qr);
+        onProgress((video.duration + el) / total, video.duration + el, total);
+        if (el >= secs) { phase = "done"; rec.stop(); return; }
+      }
+      requestAnimationFrame(frame);
+    };
+    if (ac) await ac.resume();
+    rec.start(1000);
+    await video.play();
+    requestAnimationFrame(frame);
+    await stopped;
+    if (failed) throw failed;
+    return { blob: new Blob(chunks, { type: mime.split(";")[0] }), mime };
+  } finally {
+    cleanup.forEach((f) => { try { f(); } catch (e) {} });
+  }
+}
+
+/* ---------------- sharing and saving ---------------- */
+async function shareFile(blob, name, text) {
+  const file = new File([blob], name, { type: blob.type });
+  if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], text }); return true; }
+  return false;
+}
+const canShareFiles = () => { try { return !!(navigator.canShare && navigator.canShare({ files: [new File([""], "x.png", { type: "image/png" })] })); } catch (e) { return false; } };
+
+/* ---------------- the page ---------------- */
+const $ = (id) => document.getElementById(id);
+let state = loadCfg();
+const form = $("cfgForm");
+
+function fillSwatches() {
+  $("swatches").innerHTML = Object.entries(PALETTES).map(([k, p]) =>
+    `<label for="pal-${k}"><input type="radio" id="pal-${k}" name="palette" value="${k}"><i style="background:${p.bg};box-shadow:inset -9px 0 0 ${p.accent}"></i>${p.label}</label>`).join("");
+}
+function fillQrOptions(cfg) {
+  const sel = $("f-qr"), cur = cfg.qr;
+  sel.innerHTML = Object.entries(TARGETS).filter(([k]) => cfg[k]).map(([k, l]) => `<option value="${k}">${l}</option>`).join("") || `<option value="">Add a link first</option>`;
+  sel.value = cfg[cur] ? cur : sel.options[0].value;
+}
+function toForm(cfg) {
+  $("f-name").value = cfg.name; $("f-ig").value = cfg.ig; $("f-yt").value = cfg.yt; $("f-wa").value = cfg.wa; $("f-web").value = cfg.web;
+  fillQrOptions(cfg);
+  $("f-lang").value = cfg.lang; $("f-secs").value = String(cfg.secs); $("f-wm").checked = !!cfg.wm;
+  const pal = form.querySelector(`input[name=palette][value="${cfg.palette}"]`); if (pal) pal.checked = true;
+  $(cfg.cardMode === "own" ? "cm-own" : "cm-rasta").checked = true;
+}
+function fromForm() {
+  const pal = form.querySelector("input[name=palette]:checked");
+  return { name: $("f-name").value.trim(), ig: $("f-ig").value.trim(), yt: $("f-yt").value.trim(), wa: $("f-wa").value.trim(),
+    web: $("f-web").value.trim(), qr: $("f-qr").value, lang: $("f-lang").value, palette: pal ? pal.value : "ink",
+    secs: $("f-secs").value, wm: $("f-wm").checked, cardMode: $("cm-own").checked ? "own" : "rasta" };
+}
+function render() {
+  const cfg = state.cfg;
+  $("exampleNote").hidden = state.saved;
+  $("ownBox").hidden = cfg.cardMode !== "own";
+  $("colourBox").hidden = cfg.cardMode === "own" && !!ownCard;
+  const qr = qrMatrix(cfg);
+  $("qrStatus").textContent = !cfg.qr ? "Add a link to get a QR code." : qr ? `QR code opens ${fullUrl(cfg.qr, cfg)}` : "That link is too long for a QR code. Use a shorter link.";
+  for (const [id, kind] of [["previewCard", "end"], ["storyCard", "story"]]) {
+    const c = $(id); drawCard(c.getContext("2d"), c.width, c.height, cfg, kind, 1, qr);
+  }
+  const tx = texts(cfg);
+  $("t-caption").value = tx.caption; $("t-wa").value = tx.wa; $("t-bio").value = tx.bio;
+  $("waLink").href = "https://wa.me/?text=" + encodeURIComponent(tx.wa);
+}
+form.addEventListener("input", (e) => {
+  if (e.target.id === "f-own") return; // handled by its own change listener
+  state = { cfg: fromForm(), saved: true };
+  fillQrOptions(state.cfg); state.cfg.qr = $("f-qr").value;
+  saveCfg(state.cfg); render();
+});
+form.addEventListener("submit", (e) => e.preventDefault());
+$("wipe").addEventListener("click", () => {
+  try { localStorage.removeItem(STORE_KEY); localStorage.removeItem(CHECK_KEY); localStorage.removeItem(OWN_KEY); } catch (e) {}
+  ownCard = null; $("f-own").value = "";
+  state = loadCfg(); toForm(state.cfg); render(); renderChecklist();
+  $("wipeMsg").hidden = false;
+});
+
+// tabs
+const tabs = [...document.querySelectorAll("[role=tab]")];
+tabs.forEach((b) => b.addEventListener("click", () => {
+  tabs.forEach((x) => { x.setAttribute("aria-selected", String(x === b)); $(x.getAttribute("aria-controls")).hidden = x !== b; });
+  try { localStorage.setItem("rasta.tab", b.id); } catch (e) {}
+}));
+try { const t = localStorage.getItem("rasta.tab"); if (t && $(t)) $(t).click(); } catch (e) {}
+
+// reel
+let chosen = null, lastVideoUrl = null;
+$("f-video").addEventListener("change", (e) => { chosen = e.target.files[0] || null; $("process").disabled = !chosen; $("reelError").hidden = true; });
+$("process").addEventListener("click", async () => {
+  if (!chosen) return;
+  $("process").disabled = true; $("result").hidden = true; $("reelError").hidden = true; $("progressBox").hidden = false;
+  try {
+    const { blob, mime } = await renderReel(chosen, state.cfg, (f, done, total) => {
+      $("progress").value = Math.min(1, f);
+      $("progressText").textContent = `Adding the card: ${Math.floor(done)} of ${Math.ceil(total)} seconds. Keep this screen open.`;
+    });
+    const ext = mime.includes("mp4") ? "mp4" : "webm", name = `reel-with-backup-card.${ext}`;
+    if (lastVideoUrl) URL.revokeObjectURL(lastVideoUrl);
+    lastVideoUrl = URL.createObjectURL(blob);
+    $("resultVideo").src = lastVideoUrl;
+    $("saveVideo").href = lastVideoUrl; $("saveVideo").download = name;
+    $("formatNote").hidden = ext === "mp4";
+    $("formatNote").textContent = "This browser made a WebM video, which Instagram may not accept. For best results use Chrome on Android or Safari on iPhone.";
+    const sh = $("shareVideo");
+    sh.hidden = !canShareFiles();
+    sh.onclick = () => shareFile(blob, name, texts(state.cfg).bio).catch(() => {});
+    $("result").hidden = false;
+    $("progressText").textContent = "Done.";
+  } catch (err) {
+    $("reelError").textContent = err.message || String(err); $("reelError").hidden = false; $("progressBox").hidden = true;
+  } finally {
+    $("process").disabled = !chosen;
+  }
+});
+
+// follow kit
+document.querySelectorAll("[data-copy]").forEach((b) => b.addEventListener("click", async () => {
+  const ta = $(b.dataset.copy);
+  try { await navigator.clipboard.writeText(ta.value); $("copyMsg").textContent = "Copied."; }
+  catch (e) { ta.focus(); ta.select(); $("copyMsg").textContent = "Text selected. Use your phone's Copy option."; }
+}));
+function storyBlob() {
+  const c = document.createElement("canvas"); c.width = 1080; c.height = 1920;
+  drawCard(c.getContext("2d"), 1080, 1920, state.cfg, "story", 1, qrMatrix(state.cfg));
+  return new Promise((r) => c.toBlob(r, "image/png"));
+}
+$("saveStory").addEventListener("click", async (e) => {
+  if ($("saveStory").dataset.ready) { delete $("saveStory").dataset.ready; return; }
+  e.preventDefault();
+  const b = await storyBlob(); const u = URL.createObjectURL(b);
+  $("saveStory").href = u; $("saveStory").dataset.ready = "1"; $("saveStory").click();
+  setTimeout(() => URL.revokeObjectURL(u), 10000);
+});
+$("shareStory").hidden = !canShareFiles();
+$("shareStory").addEventListener("click", async () => { try { await shareFile(await storyBlob(), "follow-our-backup.png", texts(state.cfg).caption); } catch (e) {} });
+
+// checklist
+const CHECK_KEY = "rasta.checklist";
+const CHECKS = [
+  ["Make the backup Instagram account now, while your main account still works.", "An account made after a ban can be removed by Instagram as ban evasion."],
+  ["Give the backup its own email address.", "If one email is locked or taken over, the other account is still safe."],
+  ["Turn on two-factor login with an authenticator app on both accounts.", "Authenticator apps are safer than SMS codes, which can be intercepted through the SIM."],
+  ["Write down the backup codes for both accounts and keep them off your phone.", "You'll need them if you lose the phone."],
+  ["Start a YouTube channel and a WhatsApp Channel.", "Then followers can find you even if every Meta account is blocked. YouTube is outside Meta."],
+  ["Put your backup handle in your main account's bio.", "Use the bio line in step 3."],
+  ["Pin a \"follow our backup\" post to the top of your profile.", "Use the caption and story image in step 3."],
+  ["Share the story image once a week.", "New followers keep arriving, and each of them needs to hear it."],
+  ["Add the end card to every reel before you post it.", "Reels travel far beyond your followers, so the card reaches the most people."],
+  ["Invite your backup as a collaborator on every Instagram post.", "The post shows on both profiles, and every follower sees the backup's name at the top."],
+  ["Post your most important reels directly from the backup too.", "Collab posts belong to the main account, so they will likely disappear from the backup if the main account is blocked."],
+  ["Download your Instagram data every month.", "Accounts Centre → Your information and permissions → Download your information. Then your posts are never lost."],
+];
+function renderChecklist() {
+  let done = [];
+  try { done = JSON.parse(localStorage.getItem(CHECK_KEY)) || []; } catch (e) {}
+  $("checklist").innerHTML = CHECKS.map(([what, why], i) =>
+    `<li><label class="check" for="c-${i}"><input type="checkbox" id="c-${i}" ${done.includes(i) ? "checked" : ""}><span>${what}<span class="why">${why}</span></span></label></li>`).join("");
+}
+$("checklist").addEventListener("change", () => {
+  const done = CHECKS.map((_, i) => i).filter((i) => $("c-" + i).checked);
+  try { localStorage.setItem(CHECK_KEY, JSON.stringify(done)); } catch (e) {}
+});
+
+// own end card: shrink to fit 1080 x 1920 so it fits in the phone's local storage
+function loadImage(src) {
+  return new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; });
+}
+$("f-own").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await loadImage(url);
+    const sc = Math.min(1, 1080 / img.width, 1920 / img.height);
+    const c = document.createElement("canvas");
+    c.width = Math.round(img.width * sc); c.height = Math.round(img.height * sc);
+    c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+    const data = c.toDataURL("image/jpeg", 0.88);
+    ownCard = await loadImage(data);
+    let kept = true;
+    try { localStorage.setItem(OWN_KEY, data); } catch (err) { kept = false; }
+    $("ownMsg").textContent = kept ? "Your image is saved on this phone." : "Your image will be used until you close this page. This phone has no room to keep it.";
+    render();
+  } catch (err) {
+    $("ownMsg").textContent = "That image can't be opened. Try a JPG or PNG.";
+  } finally { URL.revokeObjectURL(url); }
+});
+
+fillSwatches(); toForm(state.cfg); render(); renderChecklist();
+try {
+  const saved = localStorage.getItem(OWN_KEY);
+  if (saved) loadImage(saved).then((i) => { ownCard = i; $("ownMsg").textContent = "Your image is saved on this phone."; render(); }).catch(() => {});
+} catch (e) {}
+window.__rasta = { QR, drawCard, renderReel, qrMatrix, texts, EXAMPLE, setOwnCard: (i) => { ownCard = i; } }; // used by tests
+</script>
+</body>
+</html>
