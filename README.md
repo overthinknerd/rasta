@@ -19,7 +19,7 @@ Open `index.html` in Chrome on Android or Safari on iPhone. Host it anywhere tha
 
 ## Limits
 
-- The video is processed in real time, so a 60-second reel takes about 60 seconds. Keep the screen on while it works.
+- The video is processed in real time, so a 60-second reel takes about 60 seconds. The screen stays on while it works, and if you switch apps it pauses and carries on when you come back.
 - Chrome on Android and Safari on iPhone save MP4. Firefox saves WebM, which Instagram may not accept.
 - The output is re-encoded at about 8 Mbps, so quality is good but not identical to the original.
 - QR codes hold links up to about 200 characters.

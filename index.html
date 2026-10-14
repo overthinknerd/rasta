@@ -205,6 +205,8 @@ progress { width: 100%; height: 10px; accent-color: var(--accent) }
       <div id="progressBox" hidden>
         <progress id="progress" max="1" value="0"></progress>
         <p class="muted" id="progressText"></p>
+        <p class="muted">You can switch apps. It pauses and carries on when you come back.</p>
+        <div class="btns"><button class="btn" type="button" id="continue" hidden>Continue</button></div>
       </div>
       <p class="note" id="reelError" hidden></p>
     </div>
@@ -579,7 +581,10 @@ function pickMime() {
 
 // Plays the video once in real time, drawing each frame (plus the corner handle) onto a canvas
 // that is being recorded, then draws the end card for cfg.secs seconds and stops.
-async function renderReel(file, cfg, onProgress) {
+// If the page is hidden (app switch, screen off), video and recording pause together and pick up
+// where they left off when the page comes back, so the result has no gap.
+// ui: { progress(fraction, doneSecs, totalSecs), paused(bool), askToContinue(callback) }
+async function renderReel(file, cfg, ui) {
   const mime = pickMime();
   if (!mime) throw new Error("This browser can't record video. Use Chrome on Android or Safari on iPhone.");
   const url = URL.createObjectURL(file);
@@ -613,37 +618,70 @@ async function renderReel(file, cfg, onProgress) {
       cleanup.push(() => ac.close());
     } catch (e) { ac = null; }
 
+    // keep the screen from switching itself off while we work
+    let lock = null;
+    const wake = async () => { try { if (navigator.wakeLock && !document.hidden) lock = await navigator.wakeLock.request("screen"); } catch (e) {} };
+    cleanup.push(() => { if (lock) lock.release().catch(() => {}); });
+    await wake();
+
     const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 8_000_000, audioBitsPerSecond: 128_000 });
     const chunks = [];
     rec.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
     const stopped = new Promise((r) => (rec.onstop = r));
     const total = video.duration + secs;
-    let phase = "video", cardStart = 0, failed = null;
-    const onHide = () => { if (document.hidden && phase !== "done") { failed = new Error("Processing stopped because the screen was switched off or you left the page. Keep this screen open and try again."); } };
-    document.addEventListener("visibilitychange", onHide);
-    cleanup.push(() => document.removeEventListener("visibilitychange", onHide));
+    let phase = "video", cardStart = 0, paused = false, pausedAt = 0, loop = 0;
     video.onended = () => { phase = "card"; cardStart = performance.now(); };
 
-    const frame = () => {
-      if (failed) { phase = "done"; if (rec.state !== "inactive") rec.stop(); video.pause(); return; }
-      if (phase === "video") {
-        ctx.drawImage(video, 0, 0, w, h);
-        if (cfg.wm) drawWatermark(ctx, w, h, cfg);
-        onProgress(video.currentTime / total, video.currentTime, total);
-      } else {
-        const el = (performance.now() - cardStart) / 1000;
-        drawCard(ctx, w, h, cfg, "end", el / 0.5, qr);
-        onProgress((video.duration + el) / total, video.duration + el, total);
-        if (el >= secs) { phase = "done"; rec.stop(); return; }
-      }
+    const startLoop = () => {
+      const id = ++loop; // only the newest loop keeps running
+      const frame = () => {
+        if (id !== loop || paused || phase === "done") return;
+        if (phase === "video") {
+          ctx.drawImage(video, 0, 0, w, h);
+          if (cfg.wm) drawWatermark(ctx, w, h, cfg);
+          ui.progress(video.currentTime / total, video.currentTime, total);
+        } else {
+          const el = (performance.now() - cardStart) / 1000;
+          drawCard(ctx, w, h, cfg, "end", el / 0.5, qr);
+          ui.progress((video.duration + el) / total, video.duration + el, total);
+          if (el >= secs) { phase = "done"; rec.stop(); return; }
+        }
+        requestAnimationFrame(frame);
+      };
       requestAnimationFrame(frame);
     };
+
+    const pause = () => {
+      if (paused || phase === "done") return;
+      paused = true; pausedAt = performance.now();
+      if (rec.state === "recording") rec.pause();
+      if (phase === "video") video.pause();
+      ui.paused(true);
+    };
+    const resume = async () => {
+      if (!paused || document.hidden) return;
+      if (ac) { try { await ac.resume(); } catch (e) {} }
+      if (phase === "video") {
+        // some phones only allow playback to restart from a tap
+        try { await video.play(); } catch (e) { ui.askToContinue(resume); return; }
+      } else {
+        cardStart += performance.now() - pausedAt;
+      }
+      paused = false;
+      if (rec.state === "paused") rec.resume();
+      ui.paused(false);
+      await wake();
+      startLoop();
+    };
+    const onVis = () => (document.hidden ? pause() : resume());
+    document.addEventListener("visibilitychange", onVis);
+    cleanup.push(() => document.removeEventListener("visibilitychange", onVis));
+
     if (ac) await ac.resume();
     rec.start(1000);
     await video.play();
-    requestAnimationFrame(frame);
+    startLoop();
     await stopped;
-    if (failed) throw failed;
     return { blob: new Blob(chunks, { type: mime.split(";")[0] }), mime };
   } finally {
     cleanup.forEach((f) => { try { f(); } catch (e) {} });
@@ -728,9 +766,20 @@ $("process").addEventListener("click", async () => {
   if (!chosen) return;
   $("process").disabled = true; $("result").hidden = true; $("reelError").hidden = true; $("progressBox").hidden = false;
   try {
-    const { blob, mime } = await renderReel(chosen, state.cfg, (f, done, total) => {
-      $("progress").value = Math.min(1, f);
-      $("progressText").textContent = `Adding the card: ${Math.floor(done)} of ${Math.ceil(total)} seconds. Keep this screen open.`;
+    const { blob, mime } = await renderReel(chosen, state.cfg, {
+      progress(f, done, total) {
+        $("progress").value = Math.min(1, f);
+        $("progressText").textContent = `Adding the card: ${Math.floor(done)} of ${Math.ceil(total)} seconds.`;
+      },
+      paused(p) {
+        if (p) $("progressText").textContent = "Paused. It will continue when you come back to this page.";
+        else $("continue").hidden = true;
+      },
+      askToContinue(cb) {
+        $("progressText").textContent = "Paused. Tap Continue to pick up where it stopped.";
+        $("continue").hidden = false;
+        $("continue").onclick = () => { $("continue").hidden = true; cb(); };
+      },
     });
     const ext = mime.includes("mp4") ? "mp4" : "webm", name = `reel-with-backup-card.${ext}`;
     if (lastVideoUrl) URL.revokeObjectURL(lastVideoUrl);
